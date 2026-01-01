@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Chat P2P</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+body { font-family: sans-serif; background:#f8f9fa; margin:0; display:flex; justify-content:center; align-items:center; height:100vh; }
+#chat-wrapper { width: 400px; background:white; padding:20px; border-radius:10px; box-shadow:0 5px 15px rgba(0,0,0,0.1);}
+#chat-box { height:300px; overflow-y:auto; border:1px solid #ddd; padding:10px; border-radius:5px; margin-bottom:10px;}
+#msg-input { width:100%; resize:none; height:40px; padding:5px;}
+button { margin-top:5px; width:100%; padding:10px; border:none; border-radius:5px; background:#4ecdc4; color:white; cursor:pointer;}
+button:hover { background:#38b2ac; }
+.msg { margin-bottom:5px; padding:5px; border-radius:4px; }
+.msg-my { background:#d1ffd6; text-align:right;}
+.msg-other { background:#f1f1f1; text-align:left;}
+</style>
+</head>
+<body>
+<div id="chat-wrapper">
+  <div id="login-screen">
+    <input id="username" placeholder="Введите имя" style="width:100%;padding:10px;margin-bottom:10px;">
+    <button id="login-btn">Войти</button>
+  </div>
+  <div id="chat-ui" style="display:none;">
+    <div id="chat-box"></div>
+    <textarea id="msg-input" placeholder="Введите сообщение"></textarea>
+    <button id="send-btn">Отправить</button>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+<script src="chat.js"></script>
+</body>
+</html>
