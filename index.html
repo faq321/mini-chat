@@ -1,91 +1,65 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>P2P Chat</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    body { font-family: 'Montserrat', sans-serif; background: #f8f9fa; }
-    #chat-container { max-width: 700px; margin: 40px auto; }
-    #chat-box { height: 400px; overflow-y: auto; background: white; border-radius: 10px; padding: 15px; }
-    .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 10px; }
-    .msg-my { background: #4ecdc4; color: white; align-self: flex-end; }
-    .msg-other { background: #e9ecef; color: #333; align-self: flex-start; }
-    #msg-input { width: 100%; border-radius: 20px; padding: 10px 15px; resize: none; }
-    .d-flex-column { display: flex; flex-direction: column; }
-    .send-btn { margin-top: 10px; border-radius: 20px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>P2P Chat</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+<style>
+body { font-family: Arial, sans-serif; background:#f0f2f5; }
+#chat-box { height: 70vh; overflow-y:auto; background:white; border-radius:8px; padding:10px; }
+.msg { padding:8px 12px; margin:5px 0; border-radius:12px; max-width:70%; }
+.msg-my { background:#4ecdc4; color:white; align-self:flex-end; }
+.msg-other { background:#fff; color:#333; align-self:flex-start; }
+#input-container { display:flex; gap:10px; margin-top:10px; }
+#msg-input { flex:1; padding:10px; border-radius:8px; border:1px solid #ccc; resize:none; }
+</style>
 </head>
 <body>
 
-<div id="chat-container" class="d-flex-column">
-  <h2 class="text-center mb-4"><i class="fas fa-comments"></i> P2P Chat</h2>
-  <div id="chat-box" class="d-flex-column"></div>
+<div class="container mt-4">
+  <h3 class="text-center">P2P Chat</h3>
+  <div id="chat-box" class="d-flex flex-column"></div>
 
-  <textarea id="msg-input" rows="2" placeholder="Введите сообщение..."></textarea>
-  <button class="btn btn-primary send-btn" onclick="send()">Отправить</button>
+  <div id="input-container">
+    <textarea id="msg-input" rows="1" placeholder="Введите сообщение..."></textarea>
+    <button class="btn btn-primary" onclick="send()">Отправить</button>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
 <script>
-  // Подключение к одному стабильному peer
-  const gun = Gun({
-    peers: ['https://gunjs.herokuapp.com/gun'],
-    localStorage: true
-  });
+const gun = Gun({ peers:['https://gunjs.herokuapp.com/gun'], localStorage:true });
+const chat = gun.get('chat-room-v1');
+let user = localStorage.getItem('chat_user') || '';
+const chatBox = document.getElementById('chat-box');
+const processedIds = new Set();
 
-  const chat = gun.get('chat-room-v1');
+if (!user) {
+  user = prompt('Введите имя:') || 'Гость';
+  localStorage.setItem('chat_user', user);
+}
 
-  let user = localStorage.getItem('chat_user') || '';
-  const chatBox = document.getElementById('chat-box');
-  const processedIds = new Set();
+function send() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+  const msg = { id: Date.now() + '_' + Math.random().toString(36).slice(2,5), text, user, time: Date.now() };
+  chat.set(msg);
+  input.value = '';
+}
 
-  // Логин
-  function login() {
-    let name = prompt("Введите ваше имя:");
-    if(!name) name = 'Гость_' + Math.floor(Math.random()*1000);
-    user = name;
-    localStorage.setItem('chat_user', user);
-    setupChatListeners();
-  }
+chat.map().on(msg => {
+  if (!msg || !msg.text || processedIds.has(msg.id)) return;
+  processedIds.add(msg.id);
 
-  if(!user) login(); else setupChatListeners();
-
-  // Отправка сообщения
-  function send() {
-    const input = document.getElementById('msg-input');
-    const text = input.value.trim();
-    if(!text) return;
-    const msg = {
-      id: Date.now() + '_' + Math.random().toString(36).substr(2,5),
-      text,
-      user,
-      time: Date.now()
-    };
-    chat.set(msg);
-    input.value = '';
-  }
-
-  // Подписка на новые сообщения
-  function setupChatListeners() {
-    chat.map().on((msg) => {
-      if(!msg || processedIds.has(msg.id)) return;
-      processedIds.add(msg.id);
-      renderMessage(msg);
-    });
-  }
-
-  function renderMessage(msg) {
-    const div = document.createElement('div');
-    const isMe = msg.user === user;
-    div.className = 'msg ' + (isMe ? 'msg-my' : 'msg-other');
-    const time = new Date(msg.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    div.innerHTML = `<strong>${msg.user}</strong>: ${msg.text} <span style="float:right;font-size:10px">${time}</span>`;
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
-  }
+  const div = document.createElement('div');
+  div.className = 'msg ' + (msg.user === user ? 'msg-my' : 'msg-other');
+  const time = new Date(msg.time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  div.innerHTML = `<b>${msg.user}:</b> ${msg.text} <span style="font-size:10px;color:#666;float:right">${time}</span>`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+});
 </script>
 
 </body>
