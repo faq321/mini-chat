@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Gun.js Chat - Красивый</title>
 <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
 <style>
   body { margin:0; font-family: 'Segoe UI', sans-serif; background:#f0f2f5; display:flex; flex-direction:column; height:100vh;}
-  header { padding: 15px; background:#4ecdc4; color:#fff; text-align:center; font-size:1.5rem; font-weight:600; }
+  header { padding:15px; background:#4ecdc4; color:#fff; text-align:center; font-size:1.5rem; font-weight:600; }
   #chat-box { flex:1; padding:15px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
   .msg { max-width:70%; padding:10px 15px; border-radius:15px; position:relative; word-wrap:break-word; }
   .msg-my { background:#4ecdc4; color:#fff; align-self:flex-end; border-bottom-right-radius:3px; }
@@ -28,43 +28,33 @@
 
 <div id="input-container">
   <textarea id="msg-input" rows="1" placeholder="Введите сообщение..."></textarea>
-  <button onclick="send()"><i class="fas fa-paper-plane"></i> Отправить</button>
+  <button id="send-btn"><i class="fas fa-paper-plane"></i> Отправить</button>
 </div>
 
 <script>
-// Gun.js setup
-const gun = Gun({
-    peers:[
-        'https://gun-manhattan.herokuapp.com/gun',
-        'https://gun-eu.herokuapp.com/gun',
-        'https://gun-us.herokuapp.com/gun'
-    ]
-});
+document.addEventListener('DOMContentLoaded', () => {
+  const gun = Gun({
+      peers:[
+          'https://gun-manhattan.herokuapp.com/gun',
+          'https://gun-eu.herokuapp.com/gun',
+          'https://gun-us.herokuapp.com/gun'
+      ]
+  });
+  const chat = gun.get('beautiful-chat');
+  const chatBox = document.getElementById('chat-box');
+  let user = localStorage.getItem('chat_user') || '';
+  if(!user){
+      user = prompt('Введите ваше имя:') || 'Гость';
+      localStorage.setItem('chat_user', user);
+  }
 
-const chat = gun.get('beautiful-chat');
-const chatBox = document.getElementById('chat-box');
+  const processedIds = new Set();
 
-let user = localStorage.getItem('chat_user') || '';
-if(!user){
-    user = prompt('Введите ваше имя:') || 'Гость';
-    localStorage.setItem('chat_user', user);
-}
+  function escapeHtml(text){
+      return text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
 
-// Отправка сообщения
-function send(){
-    const input = document.getElementById('msg-input');
-    const text = input.value.trim();
-    if(!text) return;
-    const msg = { id: Date.now() + '_' + Math.random().toString(36).substr(2,5), text, user, time:Date.now() };
-    chat.set(msg);
-    input.value = '';
-    input.style.height='auto';
-}
-
-// Подписка на новые сообщения
-const processedIds = new Set();
-chat.map().on(msg=>{
-    if(!msg || !msg.text || !msg.time) return;
+  function renderMessage(msg) {
     if(processedIds.has(msg.id)) return;
     processedIds.add(msg.id);
 
@@ -78,26 +68,42 @@ chat.map().on(msg=>{
 
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
-});
+  }
 
-// Escaping HTML
-function escapeHtml(text){
-    return text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-}
+  // Подписка — фильтруем полные объекты, проверяем id и текст
+  chat.map().on((msg, key) => {
+    if(typeof msg !== 'object') return; // игнорируем если не объект
+    if(!msg.id || !msg.text || !msg.time) return;
+    renderMessage(msg);
+  });
 
-// Enter = отправить
-const msgInput = document.getElementById('msg-input');
-msgInput.addEventListener('keydown', e=>{
-    if(e.key==='Enter' && !e.shiftKey){
-        e.preventDefault();
-        send();
+  function send(){
+      const input = document.getElementById('msg-input');
+      const text = input.value.trim();
+      if(!text) return;
+      const msg = {
+        id: Date.now() + '_' + Math.random().toString(36).substr(2,5),
+        text,
+        user,
+        time:Date.now()
+      };
+      chat.set(msg);
+      input.value = '';
+      input.style.height='auto';
+  }
+
+  document.getElementById('send-btn').addEventListener('click', send);
+  const msgInput = document.getElementById('msg-input');
+  msgInput.addEventListener('keydown', e=>{
+    if(e.key==='Enter' && !e.shiftKey) {
+      e.preventDefault();
+      send();
     }
-});
-
-// Авто-рост textarea
-msgInput.addEventListener('input', ()=>{
-    msgInput.style.height='auto';
-    msgInput.style.height=msgInput.scrollHeight+'px';
+  });
+  msgInput.addEventListener('input', () => {
+    msgInput.style.height = 'auto';
+    msgInput.style.height = msgInput.scrollHeight + 'px';
+  });
 });
 </script>
 
