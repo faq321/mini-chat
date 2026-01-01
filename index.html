@@ -1,87 +1,130 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>P2P Chat</title>
-
-<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
-
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
+<!-- Виджет чата -->
 <style>
-body { background: #f5f5f5; font-family: Arial, sans-serif; }
-.chat-container { max-width: 600px; margin: 40px auto; background: #fff; padding:20px; border-radius:10px; }
-#messages { height: 350px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
-.msg { padding:10px 14px; border-radius:12px; max-width:75%; word-break:break-word; }
-.msg-me { background:#007bff; color:#fff; align-self:flex-end; }
-.msg-other { background:#e9ecef; color:#000; align-self:flex-start; }
-#msg-input { width:100%; resize:none; border-radius:8px; border:1px solid #ccc;}
+#support-chat-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  font-size: 28px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+#support-chat-window {
+  position: fixed;
+  bottom: 90px;
+  right: 20px;
+  width: 300px;
+  max-height: 400px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#support-chat-header {
+  background: #007bff;
+  color: white;
+  padding: 10px;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+}
+
+#support-chat-messages {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.support-msg {
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  max-width: 80%;
+  word-break: break-word;
+}
+
+.support-msg.me { background: #007bff; color: white; align-self: flex-end; }
+.support-msg.other { background: #f1f1f1; color: black; align-self: flex-start; }
+
+#support-chat-input-container {
+  display: flex;
+  border-top: 1px solid #ddd;
+}
+
+#support-chat-input {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  outline: none;
+}
+
+#support-chat-send {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 0 15px;
+  cursor: pointer;
+}
 </style>
-</head>
-<body>
 
-<div class="chat-container">
-  <h4 class="text-center">P2P Chat</h4>
-  <div id="login-screen">
-    <input type="text" id="username" class="form-control mb-2" placeholder="Введите имя">
-    <button id="login-btn" class="btn btn-primary w-100">Войти</button>
-  </div>
+<button id="support-chat-btn">💬</button>
 
-  <div id="chat-screen" class="d-none">
-    <div id="messages"></div>
-    <textarea id="msg-input" rows="2" placeholder="Ваше сообщение"></textarea>
-    <button id="send-btn" class="btn btn-success w-100 mt-2">Отправить</button>
+<div id="support-chat-window">
+  <div id="support-chat-header">Поддержка</div>
+  <div id="support-chat-messages"></div>
+  <div id="support-chat-input-container">
+    <input id="support-chat-input" placeholder="Напишите сообщение...">
+    <button id="support-chat-send">Отправить</button>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
 <script>
 const gun = Gun({ peers: ['https://gunjs.herokuapp.com/gun'] });
-const chat = gun.get('faq321-mini-chat-room');
+const chat = gun.get('support-chat-widget-room');
 
-let user = localStorage.getItem('chat_user') || '';
+const user = 'Пользователь_' + Math.floor(Math.random()*1000);
 
-const loginScreen = document.getElementById('login-screen');
-const chatScreen = document.getElementById('chat-screen');
-const messagesEl = document.getElementById('messages');
+const chatBtn = document.getElementById('support-chat-btn');
+const chatWindow = document.getElementById('support-chat-window');
+const chatHeader = document.getElementById('support-chat-header');
+const messagesEl = document.getElementById('support-chat-messages');
+const inputEl = document.getElementById('support-chat-input');
+const sendBtn = document.getElementById('support-chat-send');
 
-document.getElementById('login-btn').onclick = () => {
-  const name = document.getElementById('username').value.trim();
-  if(!name) return alert('Введите имя');
-  user = name;
-  localStorage.setItem('chat_user', user);
-  loginScreen.style.display = 'none';
-  chatScreen.classList.remove('d-none');
-  startChat();
-};
+chatBtn.onclick = () => chatWindow.style.display = 'flex';
+chatHeader.onclick = () => chatWindow.style.display = 'none';
 
-if(user) {
-  loginScreen.style.display = 'none';
-  chatScreen.classList.remove('d-none');
-  startChat();
-}
+sendBtn.onclick = sendMessage;
+inputEl.addEventListener('keydown', e => { if(e.key==='Enter') sendMessage(); });
 
-document.getElementById('send-btn').onclick = () => {
-  const text = document.getElementById('msg-input').value.trim();
+function sendMessage() {
+  const text = inputEl.value.trim();
   if(!text) return;
   const msg = { id: Date.now() + '_' + Math.random().toString(36).slice(2), user, text };
   chat.set(msg);
-  document.getElementById('msg-input').value = '';
-};
-
-function startChat() {
-  const seen = new Set();
-  chat.map().on(msg => {
-    if(!msg || !msg.id || seen.has(msg.id)) return;
-    seen.add(msg.id);
-    const div = document.createElement('div');
-    div.className = 'msg ' + (msg.user === user ? 'msg-me' : 'msg-other');
-    div.innerText = `${msg.user}: ${msg.text}`;
-    messagesEl.appendChild(div);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  });
+  inputEl.value = '';
 }
-</script>
 
-</body>
-</html>
+// Подписка на новые сообщения
+const seen = new Set();
+chat.map().on(msg => {
+  if(!msg || !msg.id || seen.has(msg.id)) return;
+  seen.add(msg.id);
+
+  const div = document.createElement('div');
+  div.className = 'support-msg ' + (msg.user === user ? 'me' : 'other');
+  div.innerText = msg.user + ': ' + msg.text;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+});
+</script>
