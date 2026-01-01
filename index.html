@@ -1,110 +1,91 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Gun.js Chat - Красивый</title>
-<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
-<style>
-  body { margin:0; font-family: 'Segoe UI', sans-serif; background:#f0f2f5; display:flex; flex-direction:column; height:100vh;}
-  header { padding:15px; background:#4ecdc4; color:#fff; text-align:center; font-size:1.5rem; font-weight:600; }
-  #chat-box { flex:1; padding:15px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; }
-  .msg { max-width:70%; padding:10px 15px; border-radius:15px; position:relative; word-wrap:break-word; }
-  .msg-my { background:#4ecdc4; color:#fff; align-self:flex-end; border-bottom-right-radius:3px; }
-  .msg-other { background:#fff; color:#333; align-self:flex-start; border-bottom-left-radius:3px; }
-  .msg-time { font-size:10px; color:rgba(0,0,0,0.5); margin-top:3px; text-align:right; }
-  #input-container { display:flex; padding:10px; background:#fff; box-shadow:0 -2px 5px rgba(0,0,0,0.1);}
-  #msg-input { flex:1; padding:10px; border-radius:20px; border:1px solid #ccc; resize:none; outline:none;}
-  button { margin-left:10px; border:none; padding:0 20px; border-radius:20px; background:#ff6b6b; color:#fff; cursor:pointer; font-weight:600;}
-  button:hover { background:#ff5252; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P2P Chat</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { font-family: 'Montserrat', sans-serif; background: #f8f9fa; }
+    #chat-container { max-width: 700px; margin: 40px auto; }
+    #chat-box { height: 400px; overflow-y: auto; background: white; border-radius: 10px; padding: 15px; }
+    .msg { margin-bottom: 10px; padding: 8px 12px; border-radius: 10px; }
+    .msg-my { background: #4ecdc4; color: white; align-self: flex-end; }
+    .msg-other { background: #e9ecef; color: #333; align-self: flex-start; }
+    #msg-input { width: 100%; border-radius: 20px; padding: 10px 15px; resize: none; }
+    .d-flex-column { display: flex; flex-direction: column; }
+    .send-btn { margin-top: 10px; border-radius: 20px; }
+  </style>
 </head>
 <body>
 
-<header><i class="fas fa-comments"></i> Gun.js Chat</header>
+<div id="chat-container" class="d-flex-column">
+  <h2 class="text-center mb-4"><i class="fas fa-comments"></i> P2P Chat</h2>
+  <div id="chat-box" class="d-flex-column"></div>
 
-<div id="chat-box"></div>
-
-<div id="input-container">
-  <textarea id="msg-input" rows="1" placeholder="Введите сообщение..."></textarea>
-  <button id="send-btn"><i class="fas fa-paper-plane"></i> Отправить</button>
+  <textarea id="msg-input" rows="2" placeholder="Введите сообщение..."></textarea>
+  <button class="btn btn-primary send-btn" onclick="send()">Отправить</button>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+  // Подключение к одному стабильному peer
   const gun = Gun({
-      peers:[
-          'https://gun-manhattan.herokuapp.com/gun',
-          'https://gun-eu.herokuapp.com/gun',
-          'https://gun-us.herokuapp.com/gun'
-      ]
+    peers: ['https://gunjs.herokuapp.com/gun'],
+    localStorage: true
   });
-  const chat = gun.get('beautiful-chat');
-  const chatBox = document.getElementById('chat-box');
-  let user = localStorage.getItem('chat_user') || '';
-  if(!user){
-      user = prompt('Введите ваше имя:') || 'Гость';
-      localStorage.setItem('chat_user', user);
-  }
 
+  const chat = gun.get('chat-room-v1');
+
+  let user = localStorage.getItem('chat_user') || '';
+  const chatBox = document.getElementById('chat-box');
   const processedIds = new Set();
 
-  function escapeHtml(text){
-      return text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  // Логин
+  function login() {
+    let name = prompt("Введите ваше имя:");
+    if(!name) name = 'Гость_' + Math.floor(Math.random()*1000);
+    user = name;
+    localStorage.setItem('chat_user', user);
+    setupChatListeners();
+  }
+
+  if(!user) login(); else setupChatListeners();
+
+  // Отправка сообщения
+  function send() {
+    const input = document.getElementById('msg-input');
+    const text = input.value.trim();
+    if(!text) return;
+    const msg = {
+      id: Date.now() + '_' + Math.random().toString(36).substr(2,5),
+      text,
+      user,
+      time: Date.now()
+    };
+    chat.set(msg);
+    input.value = '';
+  }
+
+  // Подписка на новые сообщения
+  function setupChatListeners() {
+    chat.map().on((msg) => {
+      if(!msg || processedIds.has(msg.id)) return;
+      processedIds.add(msg.id);
+      renderMessage(msg);
+    });
   }
 
   function renderMessage(msg) {
-    if(processedIds.has(msg.id)) return;
-    processedIds.add(msg.id);
-
-    const isMe = msg.user === user;
-    const date = new Date(msg.time);
-    const time = date.getHours().toString().padStart(2,'0')+':'+date.getMinutes().toString().padStart(2,'0');
-
     const div = document.createElement('div');
-    div.className = `msg ${isMe?'msg-my':'msg-other'}`;
-    div.innerHTML = `${!isMe?`<strong>${escapeHtml(msg.user)}</strong><br>`:''}${escapeHtml(msg.text)}<div class="msg-time">${time}</div>`;
-
+    const isMe = msg.user === user;
+    div.className = 'msg ' + (isMe ? 'msg-my' : 'msg-other');
+    const time = new Date(msg.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    div.innerHTML = `<strong>${msg.user}</strong>: ${msg.text} <span style="float:right;font-size:10px">${time}</span>`;
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
   }
-
-  // Подписка — фильтруем полные объекты, проверяем id и текст
-  chat.map().on((msg, key) => {
-    if(typeof msg !== 'object') return; // игнорируем если не объект
-    if(!msg.id || !msg.text || !msg.time) return;
-    renderMessage(msg);
-  });
-
-  function send(){
-      const input = document.getElementById('msg-input');
-      const text = input.value.trim();
-      if(!text) return;
-      const msg = {
-        id: Date.now() + '_' + Math.random().toString(36).substr(2,5),
-        text,
-        user,
-        time:Date.now()
-      };
-      chat.set(msg);
-      input.value = '';
-      input.style.height='auto';
-  }
-
-  document.getElementById('send-btn').addEventListener('click', send);
-  const msgInput = document.getElementById('msg-input');
-  msgInput.addEventListener('keydown', e=>{
-    if(e.key==='Enter' && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
-  });
-  msgInput.addEventListener('input', () => {
-    msgInput.style.height = 'auto';
-    msgInput.style.height = msgInput.scrollHeight + 'px';
-  });
-});
 </script>
 
 </body>
