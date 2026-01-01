@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Chat</title>
+
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+
+<style>
+body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+.chat-wrapper { max-width: 600px; margin: 50px auto; background: white; border-radius: 10px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+#messages { height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.msg { padding: 8px 12px; border-radius: 8px; max-width: 70%; word-wrap: break-word; }
+.msg-me { background: #4ecdc4; color: white; align-self: flex-end; }
+.msg-other { background: #e9ecef; color: black; align-self: flex-start; }
+#msg-input { width: 100%; padding: 8px; resize: none; border: 1px solid #ccc; border-radius: 8px; }
+button { margin-top: 8px; padding: 10px; width: 100%; background: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="chat-wrapper">
+  <div id="login-screen">
+    <input id="username" type="text" placeholder="Введите имя" style="width:100%;padding:8px;border-radius:6px;border:1px solid #ccc;margin-bottom:10px;">
+    <button id="login-btn">Войти</button>
+  </div>
+
+  <div id="chat-screen" style="display:none;">
+    <div id="messages"></div>
+    <textarea id="msg-input" rows="2" placeholder="Напишите сообщение..."></textarea>
+    <button id="send-btn">Отправить</button>
+  </div>
+</div>
+
+<script>
+const gun = Gun({ peers: ['https://gunjs.herokuapp.com/gun'] });
+const chat = gun.get('faq321-mini-chat');
+let user = localStorage.getItem('chat_user') || '';
+
+const loginScreen = document.getElementById('login-screen');
+const chatScreen = document.getElementById('chat-screen');
+const messagesEl = document.getElementById('messages');
+
+document.getElementById('login-btn').onclick = () => {
+  const name = document.getElementById('username').value.trim();
+  if(!name) return alert('Введите имя');
+  user = name;
+  localStorage.setItem('chat_user', user);
+  loginScreen.style.display = 'none';
+  chatScreen.style.display = 'block';
+  listen();
+};
+
+if(user) {
+  loginScreen.style.display = 'none';
+  chatScreen.style.display = 'block';
+  listen();
+}
+
+document.getElementById('send-btn').onclick = () => {
+  const text = document.getElementById('msg-input').value.trim();
+  if(!text) return;
+  const msg = { id: Date.now() + '_' + Math.random().toString(36).slice(2), user, text };
+  chat.set(msg);
+  document.getElementById('msg-input').value = '';
+};
+
+function listen() {
+  const seen = new Set();
+  chat.map().on(msg => {
+    if(!msg || !msg.id || seen.has(msg.id)) return;
+    seen.add(msg.id);
+
+    const div = document.createElement('div');
+    div.className = 'msg ' + (msg.user === user ? 'msg-me' : 'msg-other');
+    div.innerText = msg.user + ': ' + msg.text;
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  });
+}
+</script>
+
+</body>
+</html>
