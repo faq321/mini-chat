@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8"/>
-<title>Простой мессенджер</title>
+<meta charset="UTF-8">
+<title>Реальный чат между вкладками</title>
 <style>
+  body { font-family: sans-serif; }
   #chat-box { border: 1px solid #ccc; width: 400px; height: 300px; overflow-y: scroll; padding: 8px; margin-bottom: 10px; background: #f9f9f9; }
   #chat-box div { margin-bottom: 6px; padding: 4px 6px; border-radius: 6px; background: #e0e0e0; max-width: 80%; }
   #chat-box .my-msg { background: #a0d8f0; margin-left: auto; }
@@ -11,54 +12,70 @@
 </head>
 <body>
 
+<h2>Чат между вкладками</h2>
 <div id="chat-box"></div>
 
 <input type="text" id="message" placeholder="Введите сообщение" style="width: 300px;"/>
 <button onclick="send()">Отправить</button>
+<button onclick="clearChat()">Очистить чат</button>
 
 <script>
-  var userName = prompt('Введите ваше имя:', 'Гость') || 'Гость';
+  // Имя пользователя
+  const userName = prompt('Введите ваше имя:', 'Гость') || 'Гость';
 
+  // Получаем сообщения из localStorage или создаём пустой массив
+  let messages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+
+  const chatBox = document.getElementById('chat-box');
+
+  // Функция обновления чата
+  function update() {
+    chatBox.innerHTML = '';
+    messages.forEach(msg => {
+      const div = document.createElement('div');
+      div.textContent = msg.name + ": " + msg.message;
+      if(msg.name === userName) div.classList.add('my-msg');
+      chatBox.appendChild(div);
+    });
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  // Отправка сообщения
   function send() {
-    var message = document.getElementById("message").value.trim();
-    if(message === '') return alert('Введите сообщение');
+    const input = document.getElementById('message');
+    const text = input.value.trim();
+    if(!text) return alert('Введите сообщение');
 
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", "chat_backend.php");
-    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-    xhr.send("name="+encodeURIComponent(userName)+"&message="+encodeURIComponent(message));
-    xhr.onload = function() {
-      if(xhr.status == 200) {
-        document.getElementById("message").value = "";
-        update(); // сразу обновляем чат
-      } else alert('Ошибка при отправке сообщения');
+    const msgObj = { name: userName, message: text, time: Date.now() };
+    messages.push(msgObj);
+
+    // Сохраняем и уведомляем другие вкладки
+    localStorage.setItem('chatMessages', JSON.stringify(messages));
+    localStorage.setItem('chatUpdate', Date.now()); // триггер для других вкладок
+
+    input.value = '';
+    update();
+  }
+
+  // Очистка чата
+  function clearChat() {
+    if(confirm('Вы действительно хотите очистить чат?')) {
+      messages = [];
+      localStorage.removeItem('chatMessages');
+      localStorage.setItem('chatUpdate', Date.now()); // уведомляем другие вкладки
+      update();
     }
   }
 
-  function update() {
-    var xhr = new XMLHttpRequest();
-    xhr.open("GET", "chat_backend.php?get=1");
-    xhr.onload = function() {
-      if(xhr.status == 200) {
-        var chatBox = document.getElementById("chat-box");
-        // Получаем JSON массив с сообщениями
-        var messages = JSON.parse(xhr.responseText);
-        chatBox.innerHTML = "";
-        messages.forEach(function(msg) {
-          var div = document.createElement("div");
-          div.textContent = msg.name + ": " + msg.message;
-          if(msg.name === userName) div.classList.add("my-msg");
-          chatBox.appendChild(div);
-        });
-        chatBox.scrollTop = chatBox.scrollHeight;
-      }
-    };
-    xhr.send();
-  }
+  // Слушаем изменения localStorage (другие вкладки)
+  window.addEventListener('storage', (e) => {
+    if(e.key === 'chatUpdate') {
+      messages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+      update();
+    }
+  });
 
-  // Обновляем чат каждую секунду
-  setInterval(update, 1000);
-  // Первоначальный вызов
+  // Первичная загрузка
   update();
 </script>
 
